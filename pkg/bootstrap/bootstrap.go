@@ -4,20 +4,19 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/stefan79/gadgeto/pkg/context"
-	"github.com/stefan79/gadgeto/pkg/context/impl"
+	"github.com/stefan79/gadgeto/pkg/modes"
 	"github.com/urfave/cli/v2"
 )
 
 type BootStrapContext struct {
-	Context context.GadgetoContext[interface{}]
+	Context modes.Mode[interface{}]
 }
 
-func NewContext() context.GadgetoContext[interface{}] {
+func NewContext() modes.Mode[interface{}] {
 	bs := PrepareBootstrapContext()
 	if isLambdaRuntime() {
 		fmt.Println("Detected a Lambda Runtime, using Lambda Runtime Context")
-		return impl.NewRunContext()
+		return modes.NewRunMode()
 	}
 	app := Init(bs.InitCloudformationDeployment)
 	if err := app.Run(os.Args); err != nil {
@@ -37,7 +36,7 @@ func isLambdaRuntime() bool {
 func (bs *BootStrapContext) InitCloudformationDeployment(cCtx *cli.Context) error {
 	output := cCtx.String("output")
 	bucket := cCtx.String("bucket")
-	bs.Context = impl.NewDeploymentContext(&output, &bucket)
+	bs.Context = modes.NewDeployMode(&output, &bucket)
 	return nil
 }
 
