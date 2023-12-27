@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
+
 	"github.com/stefan79/gadgeto/internal/resources/aws/gs3"
-	apigw "github.com/stefan79/gadgeto/internal/triggers"
-	"github.com/stefan79/gadgeto/pkg/context"
+	"github.com/stefan79/gadgeto/internal/triggers"
+	"github.com/stefan79/gadgeto/pkg/bootstrap"
 )
 
 type (
@@ -12,7 +14,8 @@ type (
 	}
 )
 
-func (s *Setup) handleCreateCustomerCall(request apigw.Request, response apigw.Response) error {
+/*
+func (s *Setup) handleCreateCustomerCall(request triggers.Request, response triggers.Response) error {
 	key, ok := request.QueryParams["key"]
 	var err error
 	if !ok {
@@ -22,14 +25,40 @@ func (s *Setup) handleCreateCustomerCall(request apigw.Request, response apigw.R
 	}
 	return err
 }
+*/
+
+func (s *Setup) handleNativeCall(ctx context.Context, input Input) (Output, error) {
+	err := s.MyS3Bucket.WriteToObject(input.Key, []byte(input.Body))
+	return Output{
+		Message: "OK",
+	}, err
+}
+
+type Input struct {
+	Key  string
+	Body string
+}
+
+type Output struct {
+	Message string
+}
 
 func main() {
-	ctx := context.NewGadgetoContext()
+	ctx := bootstrap.NewContext()
 
 	setup := &Setup{
-		MyS3Bucket: gs3.S3(ctx, "myBucket").WithBucketName("my-bucket").Build(),
+		MyS3Bucket: gs3.
+			S3(ctx, "myBucket").
+			WithBucketName("stefansiprell1979test").
+			Build(),
 	}
-	apigw.ApiGateway("CreateCustomer").WithMethod("POST").Build(ctx).Handle(setup.handleCreateCustomerCall)
+	triggers.
+		NewNativeTrigger[Input, Output]("mainTrigger", ctx).
+		Build().
+		Handle(setup.handleNativeCall)
+
+		//apigw.ApiGateway("CreateCustomer").WithMethod("POST").Build(ctx).Handle(setup.handleCreateCustomerCall)
+
 	err := ctx.Complete()
 	if err != nil {
 		panic(err)

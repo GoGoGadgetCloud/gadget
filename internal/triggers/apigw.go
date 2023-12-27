@@ -1,8 +1,10 @@
-package apigw
+package triggers
 
 import (
+	"context"
+
 	"github.com/stefan79/gadgeto/internal"
-	"github.com/stefan79/gadgeto/pkg/context"
+	gcontext "github.com/stefan79/gadgeto/pkg/context"
 )
 
 type ApiGatewayConfig struct {
@@ -21,13 +23,15 @@ type Response struct {
 
 type ApiGatewayBuilder interface {
 	WithMethod(string) ApiGatewayBuilder
-	Build(context.GagdgetoContext[interface{}]) internal.Trigger[Request, Response]
+	Build(gcontext.GadgetoContext[interface{}]) internal.Trigger[Request, Response]
 }
 
 type ApiGWTrigger struct {
 }
 
-func (t *ApiGWTrigger) Handle(handler func(Request, Response) error) {
+// Handle implements internal.Trigger.
+func (*ApiGWTrigger) Handle(func(context.Context, Request) (Response, error)) {
+	panic("unimplemented")
 }
 
 func (c *ApiGatewayConfig) WithMethod(method string) ApiGatewayBuilder {
@@ -35,7 +39,7 @@ func (c *ApiGatewayConfig) WithMethod(method string) ApiGatewayBuilder {
 	return c
 }
 
-func (c *ApiGatewayConfig) Build(ctx context.GagdgetoContext[interface{}]) internal.Trigger[Request, Response] {
+func (c *ApiGatewayConfig) Build(ctx gcontext.GadgetoContext[interface{}]) internal.Trigger[Request, Response] {
 	return &ApiGWTrigger{}
 }
 

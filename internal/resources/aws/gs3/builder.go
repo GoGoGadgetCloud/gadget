@@ -2,12 +2,13 @@ package gs3
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/awslabs/goformation/v7/cloudformation"
 	"github.com/awslabs/goformation/v7/cloudformation/s3"
 	"github.com/stefan79/gadgeto/internal/resources/aws"
-	"github.com/stefan79/gadgeto/internal/resources/aws/gs3/internal"
 	"github.com/stefan79/gadgeto/pkg/context"
+	"github.com/stefan79/gadgeto/pkg/context/impl"
 )
 
 type (
@@ -22,11 +23,11 @@ type (
 	}
 )
 
-func S3(ctx context.GagdgetoContext[interface{}], name string) S3Builder {
+func S3(ctx context.GadgetoContext[interface{}], name string) S3Builder {
 	return &S3Config{
 		BaseAWSResource: aws.BaseAWSResource[Client]{
 			Name:           &name,
-			GadgetoContext: context.WithContext[Client](ctx),
+			GadgetoContext: impl.WithContext[Client](ctx),
 		},
 	}
 }
@@ -37,18 +38,28 @@ func (c *S3Config) WithBucketName(bucketName string) S3Builder {
 }
 
 func (c *S3Config) Connect() (Client, error) {
-	return &internal.NoOpClient{}, nil
+	envKey := generateResourceName("s3", *c.Name)
+	bucketName, ok := os.LookupEnv(envKey)
+	if !ok {
+		return nil, fmt.Errorf("environment variable %s not set", envKey)
+	}
+	return NewS3Client(bucketName)
 }
 
-func (c *S3Config) Deploy(template cloudformation.Template) (Client, error) {
-	template.Resources[generateResourceName("AWS::S3::Bucket", *c.Name)] = &s3.Bucket{
-		BucketName: c.BucketName,
+func (c *S3Config) Deploy(template *cloudformation.Template, env map[string]string) (Client, error) {
+	resourceName := generateResourceName("s3", *c.Name)
+	bucket := &s3.Bucket{}
+	if c.BucketName != nil {
+		bucket.BucketName = c.BucketName
 	}
-	return &internal.NoOpClient{}, nil
+	template.Resources[resourceName] = bucket
+	env[resourceName] = cloudformation.Ref(resourceName)
+
+	return &NoOpClient{}, nil
 }
 
 func generateResourceName(rType string, name string) string {
-	return fmt.Sprintf("%s.%s", rType, name)
+	return fmt.Sprintf("%s%s", rType, name)
 }
 
 func (c *S3Config) Build() Client {
