@@ -3,28 +3,34 @@ package bootstrap
 import (
 	"fmt"
 	"os"
+	"time"
 
-	"github.com/stefan79/gadgeto/pkg/context"
-	"github.com/stefan79/gadgeto/pkg/context/impl"
+	"github.com/charmbracelet/log"
+	"github.com/stefan79/gadgeto/pkg/modes"
 	"github.com/urfave/cli/v2"
 )
 
 type BootStrapContext struct {
-	Context context.GadgetoContext[interface{}]
+	Context modes.Mode[interface{}]
 }
 
-func NewContext() context.GadgetoContext[interface{}] {
+func NewContext() modes.Mode[interface{}] {
+	errorLogger := log.NewWithOptions(os.Stderr, log.Options{
+		ReportCaller:    false,
+		ReportTimestamp: false,
+		TimeFormat:      time.Kitchen,
+	})
 	bs := PrepareBootstrapContext()
 	if isLambdaRuntime() {
 		fmt.Println("Detected a Lambda Runtime, using Lambda Runtime Context")
-		return impl.NewRunContext()
+		return modes.NewRunMode()
 	}
 	app := Init(bs.InitCloudformationDeployment)
 	if err := app.Run(os.Args); err != nil {
-		panic(err)
+		errorLogger.Error("Failed to start in desired mode", "err", err)
 	}
 	if bs.Context == nil {
-		panic("no context initialized")
+		os.Exit(1)
 	}
 	return bs.Context
 }
@@ -35,9 +41,11 @@ func isLambdaRuntime() bool {
 }
 
 func (bs *BootStrapContext) InitCloudformationDeployment(cCtx *cli.Context) error {
-	output := cCtx.String("output")
-	bucket := cCtx.String("bucket")
-	bs.Context = impl.NewDeploymentContext(&output, &bucket)
+	template := cCtx.String("template")
+	bucket := cCtx.String("s3bucket")
+	key := cCtx.String("s3key")
+	handler := cCtx.String("handler")
+	bs.Context = modes.NewDeployMode(&template, &handler, &bucket, &key)
 	return nil
 }
 
