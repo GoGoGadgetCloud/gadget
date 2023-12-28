@@ -1,11 +1,13 @@
 package modes
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/awslabs/goformation/v7/cloudformation"
 	"github.com/awslabs/goformation/v7/cloudformation/iam"
 	"github.com/awslabs/goformation/v7/cloudformation/lambda"
+	"github.com/stefan79/gadgeto/pkg/common"
 	"github.com/stefan79/gadgeto/pkg/resources"
 )
 
@@ -15,9 +17,11 @@ type UploadLocation struct {
 }
 
 type CloudFormationDeployContext[Client any] struct {
+	Logger   common.Logger
 	Template *cloudformation.Template
 	UploadLocation
 	Environment          map[string]string
+	Handler              *string
 	TemplateFileLocation *string
 }
 
@@ -25,17 +29,25 @@ func (c *CloudFormationDeployContext[Client]) Dispatch(factory resources.Resourc
 	return factory.Deploy(c.Template, c.Environment)
 }
 
-func NewDeployMode(templateFileName *string, s3Bucket *string) Mode[interface{}] {
-	key := "lambda.zip"
+func NewDeployMode(templateFileName *string, handler *string, s3Bucket *string, s3Key *string) Mode[interface{}] {
+
 	cfContext := &CloudFormationDeployContext[interface{}]{
+		Logger:               common.NewDefaultLogger(),
 		Template:             cloudformation.NewTemplate(),
 		TemplateFileLocation: templateFileName,
+		Handler:              handler,
 		Environment:          make(map[string]string),
 		UploadLocation: UploadLocation{
 			Bucket: s3Bucket,
-			Key:    &key,
+			Key:    s3Key,
 		},
 	}
+	cfContext.Logger.Out().Info(
+		"Run Mode Deploy",
+		"template", *templateFileName,
+		"bucket", *s3Bucket,
+		"key", *s3Key,
+	)
 	return cfContext
 }
 
@@ -70,7 +82,6 @@ func (c *CloudFormationDeployContext[Client]) generateLambdaDescriptor() {
 		},
 	}
 	runtime := "go1.x"
-	handler := "remote"
 	c.Template.Resources["LambdaFunction"] = &lambda.Function{
 		Code: &lambda.Function_Code{
 			S3Bucket: c.UploadLocation.Bucket,
@@ -81,17 +92,24 @@ func (c *CloudFormationDeployContext[Client]) generateLambdaDescriptor() {
 		},
 		Role:    cloudformation.GetAtt("LambdaRole", "Arn"),
 		Runtime: &runtime,
-		Handler: &handler,
+		Handler: c.Handler,
 	}
 
 }
 
-func (c *CloudFormationDeployContext[Client]) Complete() error {
+func (c *CloudFormationDeployContext[Client]) Complete() {
 	c.generateLambdaDescriptor()
 	yaml, err := c.Template.YAML()
 	if err != nil {
-		return err
+		err = fmt.Errorf("error generating yaml: %w", err)
+		c.Logger.Err().Error(err)
+		os.Exit(1)
 	}
 	err = os.WriteFile(*c.TemplateFileLocation, yaml, 0755)
-	return err
+	if err != nil {
+		err = fmt.Errorf("error saving yaml: %w", err)
+		c.Logger.Err().Error(err, "location", *c.TemplateFileLocation)
+		os.Exit(1)
+	}
+
 }

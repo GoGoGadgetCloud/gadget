@@ -12,8 +12,7 @@ func (c *AWSLambdaRuntimeContext[Client]) Dispatch(factory resources.ResourceFac
 
 }
 
-func (c *AWSLambdaRuntimeContext[Client]) Complete() error {
-	return nil
+func (c *AWSLambdaRuntimeContext[Client]) Complete() {
 }
 
 func NewRunMode() Mode[interface{}] {

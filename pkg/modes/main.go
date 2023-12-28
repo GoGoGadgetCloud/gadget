@@ -5,6 +5,6 @@ import (
 )
 
 type Mode[Resource any] interface {
-	Complete() error
+	Complete()
 	Dispatch(factory resources.ResourceFactory[Resource]) (Resource, error)
 }
