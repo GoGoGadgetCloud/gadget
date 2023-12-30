@@ -40,12 +40,25 @@ func isLambdaRuntime() bool {
 	return ok
 }
 
+func lookup(key string, ctx *cli.Context) *string {
+
+	if ctx.IsSet(key) {
+		value := ctx.String(key)
+		return &value
+	}
+	return nil
+}
+
 func (bs *BootStrapContext) InitCloudformationDeployment(cCtx *cli.Context) error {
-	template := cCtx.String("template")
-	bucket := cCtx.String("s3bucket")
-	key := cCtx.String("s3key")
-	handler := cCtx.String("handler")
-	bs.Context = modes.NewDeployMode(&template, &handler, &bucket, &key)
+	param := &modes.DeployModeParam{
+		TemplateFileName:  lookup("template", cCtx),
+		Handler:           lookup("handler", cCtx),
+		S3Bucket:          lookup("s3bucket", cCtx),
+		S3Key:             lookup("s3key", cCtx),
+		ApplicationPrefix: lookup("application", cCtx),
+		CommandPrefix:     lookup("command", cCtx),
+	}
+	bs.Context = modes.NewDeployMode(param)
 	return nil
 }
 

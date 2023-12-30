@@ -6,7 +6,9 @@ import (
 
 	"github.com/awslabs/goformation/v7/cloudformation"
 	"github.com/awslabs/goformation/v7/cloudformation/s3"
+	"github.com/awslabs/goformation/v7/cloudformation/tags"
 	"github.com/stefan79/gadgeto/pkg/modes"
+	"github.com/stefan79/gadgeto/pkg/resources"
 	"github.com/stefan79/gadgeto/pkg/resources/aws"
 )
 
@@ -36,8 +38,8 @@ func (c *S3Config) WithBucketName(bucketName string) S3Builder {
 	return c
 }
 
-func (c *S3Config) Connect() (Client, error) {
-	envKey := generateResourceName("s3", *c.Name)
+func (c *S3Config) Connect(ctx *resources.ResourceFactoryContext) (Client, error) {
+	envKey := ctx.GenerateAppResourceKey(resources.S3Bucket, *c.BucketName)
 	bucketName, ok := os.LookupEnv(envKey)
 	if !ok {
 		return nil, fmt.Errorf("environment variable %s not set", envKey)
@@ -45,20 +47,24 @@ func (c *S3Config) Connect() (Client, error) {
 	return NewS3Client(bucketName)
 }
 
-func (c *S3Config) Deploy(template *cloudformation.Template, env map[string]string) (Client, error) {
-	resourceName := generateResourceName("s3", *c.Name)
-	bucket := &s3.Bucket{}
+func (c *S3Config) Deploy(ctx *resources.ResourceFactoryContext, template *cloudformation.Template, env map[string]string) (Client, error) {
+	bucketKey := ctx.GenerateAppResourceKey(resources.S3Bucket, *c.BucketName)
+
+	bucket := &s3.Bucket{
+		Tags: []tags.Tag{
+			{
+				Key:   "Foo",
+				Value: "Bar",
+			},
+		},
+	}
 	if c.BucketName != nil {
 		bucket.BucketName = c.BucketName
 	}
-	template.Resources[resourceName] = bucket
-	env[resourceName] = cloudformation.Ref(resourceName)
+	template.Resources[bucketKey] = bucket
+	env[bucketKey] = cloudformation.Ref(bucketKey)
 
 	return &NoOpClient{}, nil
-}
-
-func generateResourceName(rType string, name string) string {
-	return fmt.Sprintf("%s%s", rType, name)
 }
 
 func (c *S3Config) Build() Client {

@@ -35,6 +35,16 @@ func Init(deployCmd func(*cli.Context) error) *cli.App {
 								Required: true,
 							},
 							&cli.StringFlag{
+								Name:     "application",
+								Usage:    "application prefix to use in the created resources",
+								Required: true,
+							},
+							&cli.StringFlag{
+								Name:     "command",
+								Usage:    "command prefix to use in the created resources",
+								Required: true,
+							},
+							&cli.StringFlag{
 								Name:     "s3bucket",
 								Usage:    "s3 bucket name to use in the function source",
 								Required: true,

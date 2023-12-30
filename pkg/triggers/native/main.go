@@ -6,6 +6,7 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/awslabs/goformation/v7/cloudformation"
 	"github.com/stefan79/gadgeto/pkg/modes"
+	"github.com/stefan79/gadgeto/pkg/resources"
 	"github.com/stefan79/gadgeto/pkg/triggers"
 )
 
@@ -34,12 +35,12 @@ type NativeTriggerBuilderConfig[Request any, Response any] struct {
 }
 
 // Connect implements resources.ResourceFactory.
-func (*NativeTriggerBuilderConfig[Request, Response]) Connect() (triggers.Trigger[Request, Response], error) {
+func (*NativeTriggerBuilderConfig[Request, Response]) Connect(ctx *resources.ResourceFactoryContext) (triggers.Trigger[Request, Response], error) {
 	return &LambdaTriggerConfig[Request, Response]{}, nil
 }
 
 // Deploy implements resources.ResourceFactory.
-func (*NativeTriggerBuilderConfig[Request, Response]) Deploy(tmpl *cloudformation.Template, env map[string]string) (triggers.Trigger[Request, Response], error) {
+func (*NativeTriggerBuilderConfig[Request, Response]) Deploy(ctx *resources.ResourceFactoryContext, tmpl *cloudformation.Template, env map[string]string) (triggers.Trigger[Request, Response], error) {
 	return &NoOpTriggerConfig[Request, Response]{}, nil
 }
 
