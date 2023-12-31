@@ -18,6 +18,8 @@ var Deployment = ResourceType("AWSApiGatewayV2Deployment")
 var Integration = ResourceType("AWSApiGatewayV2Integration")
 
 type (
+	CompletionHook func(*ResourceFactoryContext, *cloudformation.Template) error
+
 	ResourceFactoryContext struct {
 		ApplicationName *string
 		CommandName     *string
@@ -27,7 +29,7 @@ type (
 	}
 
 	ResourceFactory[Client any] interface {
-		Deploy(ctx *ResourceFactoryContext, tmpl *cloudformation.Template, env map[string]string) (Client, error)
+		Deploy(ctx *ResourceFactoryContext, tmpl *cloudformation.Template, env map[string]string) (Client, CompletionHook, error)
 		Connect(ctx *ResourceFactoryContext) (Client, error)
 	}
 )

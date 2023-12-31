@@ -17,7 +17,7 @@ func (agbc *apiGatewayBuilderConfig) Connect(ctx *resources.ResourceFactoryConte
 }
 
 // Deploy implements resources.ResourceFactory.
-func (agbc *apiGatewayBuilderConfig) Deploy(ctx *resources.ResourceFactoryContext, tmpl *cloudformation.Template, env map[string]string) (APIGatewayClient, error) {
+func (agbc *apiGatewayBuilderConfig) Deploy(ctx *resources.ResourceFactoryContext, tmpl *cloudformation.Template, env map[string]string) (APIGatewayClient, resources.CompletionHook, error) {
 	apiGWKey := ctx.GenerateAppResourceKey(resources.Api, agbc.name)
 	apiGWName := ctx.GenerateAppResourceName(agbc.name)
 	apiGW := &apigatewayv2.Api{
@@ -38,5 +38,5 @@ func (agbc *apiGatewayBuilderConfig) Deploy(ctx *resources.ResourceFactoryContex
 		mode:      modes.DowncastMode[APIGatewayProxyTrigger](agbc.baseMode),
 		reference: cloudformation.Ref(apiGWKey),
 		key:       apiGWKey,
-	}, nil
+	}, nil, nil
 }

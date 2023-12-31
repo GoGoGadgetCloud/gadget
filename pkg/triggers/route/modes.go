@@ -17,7 +17,7 @@ func (*routeTriggerBuilderConf) Connect(ctx *resources.ResourceFactoryContext) (
 }
 
 // Deploy implements resources.ResourceFactory.
-func (rtbc *routeTriggerBuilderConf) Deploy(ctx *resources.ResourceFactoryContext, tmpl *cloudformation.Template, env map[string]string) (apigw.APIGatewayProxyTrigger, error) {
+func (rtbc *routeTriggerBuilderConf) Deploy(ctx *resources.ResourceFactoryContext, tmpl *cloudformation.Template, env map[string]string) (apigw.APIGatewayProxyTrigger, resources.CompletionHook, error) {
 	roleName := ctx.GenerateCommandResourceName(*rtbc.name + "Role")
 	roleKey := ctx.GenerateCommandResourceKey(resources.IamRole, *rtbc.name+"Role")
 
@@ -90,5 +90,5 @@ func (rtbc *routeTriggerBuilderConf) Deploy(ctx *resources.ResourceFactoryContex
 			}),
 	}
 	tmpl.Resources[routeKey] = route
-	return &noopConf{}, nil
+	return &noopConf{}, nil, nil
 }

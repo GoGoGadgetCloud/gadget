@@ -14,6 +14,7 @@ func DowncastMode[Client any](mode Mode[interface{}]) Mode[Client] {
 			Handler:                cloudformationTemplate.Handler,
 			ResourceFactoryContext: cloudformationTemplate.ResourceFactoryContext,
 			Logger:                 cloudformationTemplate.Logger,
+			CompletionHooks:        cloudformationTemplate.CompletionHooks,
 		}
 	}
 	lambdaRuntimeContext, ok := mode.(*AWSLambdaRuntimeContext[interface{}])

@@ -40,8 +40,8 @@ func (*NativeTriggerBuilderConfig[Request, Response]) Connect(ctx *resources.Res
 }
 
 // Deploy implements resources.ResourceFactory.
-func (*NativeTriggerBuilderConfig[Request, Response]) Deploy(ctx *resources.ResourceFactoryContext, tmpl *cloudformation.Template, env map[string]string) (triggers.Trigger[Request, Response], error) {
-	return &NoOpTriggerConfig[Request, Response]{}, nil
+func (*NativeTriggerBuilderConfig[Request, Response]) Deploy(ctx *resources.ResourceFactoryContext, tmpl *cloudformation.Template, env map[string]string) (triggers.Trigger[Request, Response], resources.CompletionHook, error) {
+	return &NoOpTriggerConfig[Request, Response]{}, nil, nil
 }
 
 type NativeTriggerConfig[Request any, Response any] struct {

@@ -23,6 +23,7 @@ type CloudFormationDeployContext[Client any] struct {
 	Template *cloudformation.Template
 	UploadLocation
 	Environment            map[string]string
+	CompletionHooks        []resources.CompletionHook
 	Handler                *string
 	TemplateFileLocation   *string
 	ResourceFactoryContext *resources.ResourceFactoryContext
@@ -30,7 +31,15 @@ type CloudFormationDeployContext[Client any] struct {
 
 func (c *CloudFormationDeployContext[Client]) Dispatch(factory resources.ResourceFactory[Client]) (Client, error) {
 	fmt.Println("Dispatch Passing", *c.ResourceFactoryContext.ApplicationName, *c.ResourceFactoryContext.CommandName)
-	return factory.Deploy(c.ResourceFactoryContext, c.Template, c.Environment)
+	client, hook, err := factory.Deploy(c.ResourceFactoryContext, c.Template, c.Environment)
+	if err != nil {
+		return client, err
+
+	}
+	if hook != nil {
+		c.CompletionHooks = append(c.CompletionHooks, hook)
+	}
+	return client, nil
 }
 
 type DeployModeParam struct {
@@ -50,6 +59,7 @@ func NewDeployMode(param *DeployModeParam) Mode[interface{}] {
 		TemplateFileLocation: param.TemplateFileName,
 		Handler:              param.Handler,
 		Environment:          make(map[string]string),
+		CompletionHooks:      make([]resources.CompletionHook, 0),
 		UploadLocation: UploadLocation{
 			Bucket: param.S3Bucket,
 			Key:    param.S3Key,
