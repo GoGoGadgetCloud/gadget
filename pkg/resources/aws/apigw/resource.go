@@ -3,37 +3,46 @@ package apigw
 import "github.com/stefan79/gadgeto/pkg/modes"
 
 type (
-	runConf struct {
+	runConfiguration struct {
 		mode modes.Mode[APIGatewayProxyTrigger]
 	}
 
-	buildConf struct {
-		mode      modes.Mode[APIGatewayProxyTrigger]
-		reference string
-		key       string
+	buildConfiguration struct {
+		mode        modes.Mode[APIGatewayProxyTrigger]
+		reference   string
+		key         string
+		builderConf *apiGatewayBuilderConfig
 	}
 )
 
-func (dc *buildConf) GetTriggerMode() modes.Mode[APIGatewayProxyTrigger] {
-	return dc.mode
+func (bc *buildConfiguration) GetTriggerMode() modes.Mode[APIGatewayProxyTrigger] {
+	return bc.mode
 }
 
-func (dc *buildConf) GetReference() string {
-	return dc.reference
+func (bc *buildConfiguration) GetReference() string {
+	return bc.reference
 }
 
-func (dc *buildConf) GetKey() string {
-	return dc.key
+func (bc *buildConfiguration) GetKey() string {
+	return bc.key
 }
 
-func (nc *runConf) GetTriggerMode() modes.Mode[APIGatewayProxyTrigger] {
+func (bc *buildConfiguration) RegisterIntegration(key string) {
+	bc.builderConf.integrationKeys = append(bc.builderConf.integrationKeys, key)
+}
+
+func (nc *runConfiguration) GetTriggerMode() modes.Mode[APIGatewayProxyTrigger] {
 	return nc.mode
 }
 
-func (nc *runConf) GetReference() string {
+func (nc *runConfiguration) GetReference() string {
 	panic("not implemented")
 }
 
-func (nc *runConf) GetKey() string {
+func (nc *runConfiguration) GetKey() string {
+	panic("not implemented")
+}
+
+func (nc *runConfiguration) RegisterIntegration(key string) {
 	panic("not implemented")
 }

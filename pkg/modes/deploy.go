@@ -124,6 +124,9 @@ func (c *CloudFormationDeployContext[Client]) generateLambdaDescriptor() {
 }
 
 func (c *CloudFormationDeployContext[Client]) Complete() {
+	for _, hook := range c.CompletionHooks {
+		hook(c.ResourceFactoryContext, c.Template)
+	}
 	yaml, err := c.Template.YAML()
 	if err != nil {
 		err = fmt.Errorf("error generating yaml: %w", err)

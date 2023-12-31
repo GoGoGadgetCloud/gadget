@@ -14,6 +14,7 @@ type (
 		disableExecuteAPIEndpoint bool
 		routeSelectionExpression  *string
 		tags                      map[string]string
+		integrationKeys           []string
 	}
 
 	ApiGatewayBuilder interface {

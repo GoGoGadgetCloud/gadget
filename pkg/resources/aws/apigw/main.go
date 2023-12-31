@@ -20,6 +20,7 @@ type (
 		GetTriggerMode() modes.Mode[APIGatewayProxyTrigger]
 		GetReference() string
 		GetKey() string
+		RegisterIntegration(string)
 	}
 )
 
@@ -34,5 +35,6 @@ func NewApiGatewayClient(name string, mode modes.Mode[interface{}]) ApiGatewayBu
 		disableExecuteAPIEndpoint: false,
 		routeSelectionExpression:  nil,
 		tags:                      map[string]string{},
+		integrationKeys:           make([]string, 0),
 	}
 }
