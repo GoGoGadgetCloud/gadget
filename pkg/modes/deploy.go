@@ -13,33 +13,23 @@ import (
 	"github.com/stefan79/gadgeto/pkg/resources"
 )
 
-type UploadLocation struct {
-	Bucket *string
-	Key    *string
+type lambdaFunctionDescriptor struct {
+	deploymentSourceBucket *string
+	deployementSourceKey   *string
+	handlerName            *string
 }
 
-type CloudFormationDeployContext[Client any] struct {
-	Logger   common.Logger
-	Template *cloudformation.Template
-	UploadLocation
-	Environment            map[string]string
-	CompletionHooks        []resources.CompletionHook
-	Handler                *string
-	TemplateFileLocation   *string
-	ResourceFactoryContext *resources.ResourceFactoryContext
+type CloudFormationDeployMode[Client any] struct {
+	Logger                   common.Logger
+	Handler                  *string
+	TemplateFileLocation     *string
+	ResourceFactoryContext   *resources.ResourceFactoryContext
+	DeploymentRegistrations  *resources.DeploymentRegistrations
+	lambdaFunctionDescriptor *lambdaFunctionDescriptor
 }
 
-func (c *CloudFormationDeployContext[Client]) Dispatch(factory resources.ResourceFactory[Client]) (Client, error) {
-	fmt.Println("Dispatch Passing", *c.ResourceFactoryContext.ApplicationName, *c.ResourceFactoryContext.CommandName)
-	client, hook, err := factory.Deploy(c.ResourceFactoryContext, c.Template, c.Environment)
-	if err != nil {
-		return client, err
-
-	}
-	if hook != nil {
-		c.CompletionHooks = append(c.CompletionHooks, hook)
-	}
-	return client, nil
+func (c *CloudFormationDeployMode[Resource]) Dispatch(factory resources.ResourceFactory[Resource]) (Resource, error) {
+	return factory.Deploy(c.ResourceFactoryContext, c.DeploymentRegistrations)
 }
 
 type DeployModeParam struct {
@@ -53,33 +43,39 @@ type DeployModeParam struct {
 
 func NewDeployMode(param *DeployModeParam) Mode[interface{}] {
 
-	cfContext := &CloudFormationDeployContext[interface{}]{
-		Logger:               common.NewDefaultLogger(),
-		Template:             cloudformation.NewTemplate(),
-		TemplateFileLocation: param.TemplateFileName,
-		Handler:              param.Handler,
-		Environment:          make(map[string]string),
-		CompletionHooks:      make([]resources.CompletionHook, 0),
-		UploadLocation: UploadLocation{
-			Bucket: param.S3Bucket,
-			Key:    param.S3Key,
-		},
-		ResourceFactoryContext: &resources.ResourceFactoryContext{
-			ApplicationName: param.ApplicationPrefix,
-			CommandName:     param.CommandPrefix,
-		},
+	lfd := &lambdaFunctionDescriptor{
+		deploymentSourceBucket: param.S3Bucket,
+		deployementSourceKey:   param.S3Key,
+		handlerName:            param.Handler,
 	}
 
-	cfContext.generateLambdaDescriptor()
+	rfc := resources.NewResourceBuilderContext(
+		*param.ApplicationPrefix,
+		*param.CommandPrefix,
+	)
+
+	cfContext := &CloudFormationDeployMode[interface{}]{
+		Logger:                   common.NewDefaultLogger(),
+		TemplateFileLocation:     param.TemplateFileName,
+		Handler:                  param.Handler,
+		ResourceFactoryContext:   rfc,
+		lambdaFunctionDescriptor: lfd,
+		DeploymentRegistrations:  resources.NewDeploymentBuilder(),
+	}
+
 	return cfContext
 }
 
-func (c *CloudFormationDeployContext[Client]) generateLambdaDescriptor() {
-	lambdaRoleKey := c.ResourceFactoryContext.GenerateCommandResourceKey("iamrole", "role")
-	lambdaRoleName := c.ResourceFactoryContext.GenerateCommandResourceName("iamrole")
-	lambdaFunctionKey := c.ResourceFactoryContext.GenerateCommandResourceKey("lambdafunction", "lambda")
-	lambdaFunctionName := c.ResourceFactoryContext.GenerateCommandResourceName("function")
-	c.Template.Resources[lambdaRoleKey] = &iam.Role{
+func generateLambdaDescriptor(
+	lambdaFunctionDescriptor *lambdaFunctionDescriptor,
+	rfc *resources.ResourceFactoryContext,
+	env map[string]string,
+	template *cloudformation.Template,
+) {
+	lambdaRoleKey := rfc.GenerateCommandResourceKey("iamrole", "role")
+	lambdaRoleName := rfc.GenerateCommandResourceName("iamrole")
+
+	role := &iam.Role{
 		AssumeRolePolicyDocument: iam_generator.GenerateAssumeRoleForService(iam_generator.Lambda),
 		Policies: []iam.Role_Policy{
 			{
@@ -94,23 +90,24 @@ func (c *CloudFormationDeployContext[Client]) generateLambdaDescriptor() {
 			},
 		},
 	}
+	template.Resources[lambdaRoleKey] = role
+
+	env["GADGETO_APPLICATION_NAME"] = *rfc.ApplicationName
+	env["GADGETO_COMMAND_NAME"] = *rfc.CommandName
+
 	runtime := "go1.x"
-
-	c.Environment["GADGETO_APPLICATION_NAME"] = *c.ResourceFactoryContext.ApplicationName
-	c.Environment["GADGETO_COMMAND_NAME"] = *c.ResourceFactoryContext.CommandName
-
-	c.Template.Resources[lambdaFunctionKey] = &lambda.Function{
-		FunctionName: &lambdaFunctionName,
+	template.Resources[*rfc.LambdaKey] = &lambda.Function{
+		FunctionName: rfc.LambdaName,
 		Code: &lambda.Function_Code{
-			S3Bucket: c.UploadLocation.Bucket,
-			S3Key:    c.UploadLocation.Key,
+			S3Bucket: lambdaFunctionDescriptor.deploymentSourceBucket,
+			S3Key:    lambdaFunctionDescriptor.deployementSourceKey,
 		},
 		Environment: &lambda.Function_Environment{
-			Variables: c.Environment,
+			Variables: env,
 		},
 		Role:    cloudformation.GetAtt(lambdaRoleKey, "Arn"),
 		Runtime: &runtime,
-		Handler: c.Handler,
+		Handler: lambdaFunctionDescriptor.handlerName,
 		Tags: []tags.Tag{
 			{
 				Key:   "Foo",
@@ -118,16 +115,20 @@ func (c *CloudFormationDeployContext[Client]) generateLambdaDescriptor() {
 			},
 		},
 	}
-	c.ResourceFactoryContext.LambdaRef = resources.StringPtr(cloudformation.Ref(lambdaFunctionKey))
-	c.ResourceFactoryContext.LambdaArn = resources.StringPtr(cloudformation.GetAtt(lambdaFunctionKey, "Arn"))
-	c.ResourceFactoryContext.LambdaKey = resources.StringPtr(lambdaFunctionKey)
 }
 
-func (c *CloudFormationDeployContext[Client]) Complete() {
-	for _, hook := range c.CompletionHooks {
-		hook(c.ResourceFactoryContext, c.Template)
+func (c *CloudFormationDeployMode[Client]) Complete() {
+	template := cloudformation.NewTemplate()
+	for key, resource := range c.DeploymentRegistrations.CloudformationResources {
+		template.Resources[key] = resource
 	}
-	yaml, err := c.Template.YAML()
+
+	for _, hook := range c.DeploymentRegistrations.CompletionHooks {
+		hook(c.ResourceFactoryContext, template)
+	}
+	generateLambdaDescriptor(c.lambdaFunctionDescriptor, c.ResourceFactoryContext, c.DeploymentRegistrations.EnvironmentVariables, template)
+
+	yaml, err := template.YAML()
 	if err != nil {
 		err = fmt.Errorf("error generating yaml: %w", err)
 		c.Logger.Err().Error(err)

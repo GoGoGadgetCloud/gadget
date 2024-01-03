@@ -1,6 +1,7 @@
 package apigw
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/awslabs/goformation/v7/cloudformation"
@@ -17,7 +18,7 @@ func (agbc *apiGatewayBuilderConfig) Connect(ctx *resources.ResourceFactoryConte
 }
 
 // Deploy implements resources.ResourceFactory.
-func (agbc *apiGatewayBuilderConfig) Deploy(ctx *resources.ResourceFactoryContext, tmpl *cloudformation.Template, env map[string]string) (APIGatewayClient, resources.CompletionHook, error) {
+func (agbc *apiGatewayBuilderConfig) Deploy(ctx *resources.ResourceFactoryContext, db resources.DeploymentBuilder) (APIGatewayClient, error) {
 	apiGWKey := ctx.GenerateAppResourceKey(resources.Api, agbc.name)
 	apiGWName := ctx.GenerateAppResourceName(agbc.name)
 	apiGW := &apigatewayv2.Api{
@@ -32,7 +33,7 @@ func (agbc *apiGatewayBuilderConfig) Deploy(ctx *resources.ResourceFactoryContex
 		RouteSelectionExpression: agbc.routeSelectionExpression,
 		Tags:                     agbc.tags,
 	}
-	tmpl.Resources[apiGWKey] = apiGW
+	rcfrErr := db.RegisterCloudformationResource(apiGWKey, apiGW)
 
 	complConf := &completionConfiguration{
 		apiName:         apiGWName,
@@ -40,12 +41,14 @@ func (agbc *apiGatewayBuilderConfig) Deploy(ctx *resources.ResourceFactoryContex
 		integrationKeys: agbc.integrationKeys,
 	}
 
+	rchErr := db.RegisterCompletionHook(complConf.deploymentCompletion)
+
 	return &buildConfiguration{
 		mode:        modes.DowncastMode[APIGatewayProxyTrigger](agbc.baseMode),
 		reference:   cloudformation.Ref(apiGWKey),
 		key:         apiGWKey,
 		builderConf: agbc,
-	}, complConf.deploymentCompletion, nil
+	}, errors.Join(rcfrErr, rchErr)
 }
 
 type completionConfiguration struct {

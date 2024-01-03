@@ -1,6 +1,7 @@
 package gs3
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -19,7 +20,7 @@ func (c *builderConf) Connect(ctx *resources.ResourceFactoryContext) (Client, er
 	return newRunClient(bucketName)
 }
 
-func (c *builderConf) Deploy(ctx *resources.ResourceFactoryContext, template *cloudformation.Template, env map[string]string) (Client, resources.CompletionHook, error) {
+func (c *builderConf) Deploy(ctx *resources.ResourceFactoryContext, db resources.DeploymentBuilder) (Client, error) {
 	bucketKey := ctx.GenerateAppResourceKey(resources.S3Bucket, *c.bucketName)
 
 	bucket := &s3.Bucket{
@@ -33,8 +34,8 @@ func (c *builderConf) Deploy(ctx *resources.ResourceFactoryContext, template *cl
 	if c.bucketName != nil {
 		bucket.BucketName = c.bucketName
 	}
-	template.Resources[bucketKey] = bucket
-	env[bucketKey] = cloudformation.Ref(bucketKey)
+	rcrErr := db.RegisterCloudformationResource(bucketKey, bucket)
+	revErr := db.RegisterEnvironmentVariable(bucketKey, cloudformation.Ref(bucketKey))
 
-	return &noopConf{}, nil, nil
+	return &noopConf{}, errors.Join(rcrErr, revErr)
 }

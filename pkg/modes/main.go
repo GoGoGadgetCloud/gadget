@@ -6,5 +6,5 @@ import (
 
 type Mode[Resource any] interface {
 	Complete()
-	Dispatch(factory resources.ResourceFactory[Resource]) (Resource, error)
+	Dispatch(resources.ResourceFactory[Resource]) (Resource, error)
 }

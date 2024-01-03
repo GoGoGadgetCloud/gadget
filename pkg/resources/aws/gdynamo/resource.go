@@ -1,0 +1,3 @@
+package gdynamo
+
+type ()

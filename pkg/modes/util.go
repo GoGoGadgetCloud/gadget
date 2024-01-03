@@ -4,22 +4,21 @@ import (
 	"fmt"
 )
 
-func DowncastMode[Client any](mode Mode[interface{}]) Mode[Client] {
-	cloudformationTemplate, ok := mode.(*CloudFormationDeployContext[interface{}])
+func DowncastMode[Resource any](mode Mode[interface{}]) Mode[Resource] {
+	cfdc, ok := mode.(*CloudFormationDeployMode[interface{}])
 	if ok {
-		return &CloudFormationDeployContext[Client]{
-			Template:               cloudformationTemplate.Template,
-			UploadLocation:         cloudformationTemplate.UploadLocation,
-			Environment:            cloudformationTemplate.Environment,
-			Handler:                cloudformationTemplate.Handler,
-			ResourceFactoryContext: cloudformationTemplate.ResourceFactoryContext,
-			Logger:                 cloudformationTemplate.Logger,
-			CompletionHooks:        cloudformationTemplate.CompletionHooks,
+		return &CloudFormationDeployMode[Resource]{
+			Handler:                  cfdc.Handler,
+			ResourceFactoryContext:   cfdc.ResourceFactoryContext,
+			Logger:                   cfdc.Logger,
+			DeploymentRegistrations:  cfdc.DeploymentRegistrations,
+			TemplateFileLocation:     cfdc.TemplateFileLocation,
+			lambdaFunctionDescriptor: cfdc.lambdaFunctionDescriptor,
 		}
 	}
-	lambdaRuntimeContext, ok := mode.(*AWSLambdaRuntimeContext[interface{}])
+	lambdaRuntimeContext, ok := mode.(*AWSLambdaRuntimeMode[interface{}])
 	if ok {
-		return &AWSLambdaRuntimeContext[Client]{
+		return &AWSLambdaRuntimeMode[Resource]{
 			ResourceFactoryContext: lambdaRuntimeContext.ResourceFactoryContext,
 		}
 	}

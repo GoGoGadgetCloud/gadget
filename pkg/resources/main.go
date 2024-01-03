@@ -20,24 +20,45 @@ var Integration = ResourceType("AWSApiGatewayV2Integration")
 type (
 	CompletionHook func(*ResourceFactoryContext, *cloudformation.Template) error
 
+	DeploymentRegistrations struct {
+		CloudformationResources map[string]cloudformation.Resource
+		EnvironmentVariables    map[string]string
+		LambdaRoleActions       []map[string]interface{}
+		CompletionHooks         []CompletionHook
+	}
+
 	ResourceFactoryContext struct {
 		ApplicationName *string
 		CommandName     *string
-		LambdaRef       *string
-		LambdaArn       *string
+		LambdaName      *string
 		LambdaKey       *string
+		LambdaArn       *string
+		LambdaRef       *string
 	}
 
-	ResourceFactory[Client any] interface {
-		Deploy(ctx *ResourceFactoryContext, tmpl *cloudformation.Template, env map[string]string) (Client, CompletionHook, error)
-		Connect(ctx *ResourceFactoryContext) (Client, error)
+	DeploymentBuilder interface {
+		RegisterCloudformationResource(string, cloudformation.Resource) error
+		RegisterEnvironmentVariable(string, string) error
+		RegisterLabmdaRoleAction(map[string]interface{}) error
+		RegisterCompletionHook(CompletionHook) error
+	}
+
+	ResourceFactory[Resource any] interface {
+		Deploy(*ResourceFactoryContext, DeploymentBuilder) (Resource, error)
+		Connect(*ResourceFactoryContext) (Resource, error)
 	}
 )
 
 func NewResourceBuilderContext(applicationName string, commandName string) *ResourceFactoryContext {
+	lambdaKey := strings.Title(applicationName) + strings.Title(commandName)
+	lambdaName := strings.Title(applicationName) + strings.Title(commandName) + strings.Title(string(LambdaFunction))
 	return &ResourceFactoryContext{
 		ApplicationName: &applicationName,
 		CommandName:     &commandName,
+		LambdaName:      &lambdaName,
+		LambdaKey:       &lambdaKey,
+		LambdaArn:       cloudformation.GetAttPtr(lambdaKey, "Arn"),
+		LambdaRef:       cloudformation.RefPtr(lambdaKey),
 	}
 }
 
@@ -89,6 +110,36 @@ func (p *ResourceFactoryContext) GenerateAppResourceKey(resType ResourceType, re
 
 	return resourceName
 }
+
 func StringPtr(input string) *string {
 	return &input
+}
+
+func NewDeploymentBuilder() *DeploymentRegistrations {
+	return &DeploymentRegistrations{
+		CloudformationResources: make(map[string]cloudformation.Resource),
+		EnvironmentVariables:    make(map[string]string),
+		LambdaRoleActions:       make([]map[string]interface{}, 0),
+		CompletionHooks:         make([]CompletionHook, 0),
+	}
+}
+
+func (dr *DeploymentRegistrations) RegisterCloudformationResource(key string, resource cloudformation.Resource) error {
+	dr.CloudformationResources[key] = resource
+	return nil
+}
+
+func (dr *DeploymentRegistrations) RegisterEnvironmentVariable(key string, value string) error {
+	dr.EnvironmentVariables[key] = value
+	return nil
+}
+
+func (dr *DeploymentRegistrations) RegisterLabmdaRoleAction(action map[string]interface{}) error {
+	dr.LambdaRoleActions = append(dr.LambdaRoleActions, action)
+	return nil
+}
+
+func (dr *DeploymentRegistrations) RegisterCompletionHook(hook CompletionHook) error {
+	dr.CompletionHooks = append(dr.CompletionHooks, hook)
+	return nil
 }

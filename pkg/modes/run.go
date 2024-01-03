@@ -7,15 +7,15 @@ import (
 	"github.com/stefan79/gadgeto/pkg/resources"
 )
 
-type AWSLambdaRuntimeContext[Client any] struct {
+type AWSLambdaRuntimeMode[Resource any] struct {
 	ResourceFactoryContext *resources.ResourceFactoryContext
 }
 
-func (c *AWSLambdaRuntimeContext[Client]) Dispatch(factory resources.ResourceFactory[Client]) (Client, error) {
+func (c *AWSLambdaRuntimeMode[Resource]) Dispatch(factory resources.ResourceFactory[Resource]) (Resource, error) {
 	return factory.Connect(c.ResourceFactoryContext)
 
 }
-func (c *AWSLambdaRuntimeContext[Client]) Complete() {
+func (c *AWSLambdaRuntimeMode[Resource]) Complete() {
 }
 
 func NewRunMode() Mode[interface{}] {
@@ -30,7 +30,7 @@ func NewRunMode() Mode[interface{}] {
 
 	fmt.Println("ApplicationName: ", applicationName, "CommandName: ", commandName)
 
-	return &AWSLambdaRuntimeContext[interface{}]{
+	return &AWSLambdaRuntimeMode[interface{}]{
 		ResourceFactoryContext: &resources.ResourceFactoryContext{
 			ApplicationName: &applicationName,
 			CommandName:     &commandName,

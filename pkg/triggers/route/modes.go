@@ -1,6 +1,8 @@
 package route
 
 import (
+	"errors"
+
 	"github.com/awslabs/goformation/v7/cloudformation"
 	"github.com/awslabs/goformation/v7/cloudformation/apigatewayv2"
 	"github.com/awslabs/goformation/v7/cloudformation/iam"
@@ -15,7 +17,7 @@ func (*routeTriggerBuilderConf) Connect(ctx *resources.ResourceFactoryContext) (
 }
 
 // Deploy implements resources.ResourceFactory.
-func (rtbc *routeTriggerBuilderConf) Deploy(ctx *resources.ResourceFactoryContext, tmpl *cloudformation.Template, env map[string]string) (apigw.APIGatewayProxyTrigger, resources.CompletionHook, error) {
+func (rtbc *routeTriggerBuilderConf) Deploy(ctx *resources.ResourceFactoryContext, db resources.DeploymentBuilder) (apigw.APIGatewayProxyTrigger, error) {
 	roleName := ctx.GenerateCommandResourceName(*rtbc.name + "Role")
 	roleKey := ctx.GenerateCommandResourceKey(resources.IamRole, *rtbc.name+"Role")
 
@@ -30,7 +32,7 @@ func (rtbc *routeTriggerBuilderConf) Deploy(ctx *resources.ResourceFactoryContex
 			},
 		},
 	}
-	tmpl.Resources[roleKey] = role
+	rcrRoleErr := db.RegisterCloudformationResource(roleKey, role)
 
 	routeIntegrationKey := ctx.GenerateCommandResourceKey(resources.Integration, *rtbc.name+"Integration")
 	timeoutInMillis := int(29000)
@@ -46,7 +48,7 @@ func (rtbc *routeTriggerBuilderConf) Deploy(ctx *resources.ResourceFactoryContex
 		PayloadFormatVersion: resources.StringPtr("2.0"),
 		IntegrationUri:       ctx.LambdaArn,
 	}
-	tmpl.Resources[routeIntegrationKey] = routeIntegration
+	rcrIntegrationErr := db.RegisterCloudformationResource(routeIntegrationKey, routeIntegration)
 
 	routeName := ctx.GenerateCommandResourceName(*rtbc.name)
 	routeKey := ctx.GenerateCommandResourceKey(resources.Route, *rtbc.name)
@@ -67,6 +69,6 @@ func (rtbc *routeTriggerBuilderConf) Deploy(ctx *resources.ResourceFactoryContex
 				cloudformation.Ref(routeIntegrationKey),
 			}),
 	}
-	tmpl.Resources[routeKey] = route
-	return &noopConf{}, nil, nil
+	rcrRouteErr := db.RegisterCloudformationResource(routeKey, route)
+	return &noopConf{}, errors.Join(rcrRoleErr, rcrIntegrationErr, rcrRouteErr)
 }
